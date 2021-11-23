@@ -297,20 +297,6 @@ Emscripten_ConvertUTF32toUTF8(Uint32 codepoint, char * text)
     return SDL_TRUE;
 }
 
-void
-Emscripten_ResumeAudio(void)
-{
-    /* this is a workaround for chrome disabling audio unless it was caused by user interaction*/
-    EM_ASM({
-        var SDL2 = Module['SDL2'];
-        if(!SDL2 || !SDL2.audioContext)
-            return;
-
-        if(SDL2.audioContext.state == 'suspended')
-            SDL2.audioContext.resume();
-    });
-}
-
 static EM_BOOL
 Emscripten_HandlePointerLockChange(int eventType, const EmscriptenPointerlockChangeEvent *changeEvent, void *userData)
 {
@@ -382,8 +368,6 @@ Emscripten_HandleMouseButton(int eventType, const EmscriptenMouseEvent *mouseEve
         sdl_button_state = SDL_PRESSED;
         sdl_event_type = SDL_MOUSEBUTTONDOWN;
     } else {
-        Emscripten_ResumeAudio();
-
         sdl_button_state = SDL_RELEASED;
         sdl_event_type = SDL_MOUSEBUTTONUP;
     }
@@ -425,7 +409,22 @@ static EM_BOOL
 Emscripten_HandleWheel(int eventType, const EmscriptenWheelEvent *wheelEvent, void *userData)
 {
     SDL_WindowData *window_data = userData;
-    SDL_SendMouseWheel(window_data->window, 0, (float)wheelEvent->deltaX, (float)-wheelEvent->deltaY, SDL_MOUSEWHEEL_NORMAL);
+
+    float deltaY = wheelEvent->deltaY;
+
+    switch (wheelEvent->deltaMode) {
+        case DOM_DELTA_PIXEL:
+            deltaY /= 100; /* 100 pixels make up a step */
+            break;
+        case DOM_DELTA_LINE:
+            deltaY /= 3; /* 3 lines make up a step */
+            break;
+        case DOM_DELTA_PAGE:
+            deltaY *= 80; /* A page makes up 80 steps */
+            break;
+    }
+
+    SDL_SendMouseWheel(window_data->window, 0, (float)wheelEvent->deltaX, -deltaY, SDL_MOUSEWHEEL_NORMAL);
     return SDL_GetEventState(SDL_MOUSEWHEEL) == SDL_ENABLE;
 }
 
@@ -477,8 +476,6 @@ Emscripten_HandleTouch(int eventType, const EmscriptenTouchEvent *touchEvent, vo
             if (!preventDefault && SDL_GetEventState(SDL_FINGERDOWN) == SDL_ENABLE) {
                 preventDefault = 1;
             }
-
-            Emscripten_ResumeAudio();
         } else if (eventType == EMSCRIPTEN_EVENT_TOUCHMOVE) {
             SDL_SendTouchMotion(deviceId, id, x, y, 1.0f);
         } else {
@@ -574,8 +571,6 @@ Emscripten_HandleKey(int eventType, const EmscriptenKeyboardEvent *keyEvent, voi
         }
     }
 
-    Emscripten_ResumeAudio();
-
     prevent_default = SDL_GetEventState(eventType == EMSCRIPTEN_EVENT_KEYDOWN ? SDL_KEYDOWN : SDL_KEYUP) == SDL_ENABLE;
 
     /* if TEXTINPUT events are enabled we can't prevent keydown or we won't get keypress
@@ -588,8 +583,7 @@ Emscripten_HandleKey(int eventType, const EmscriptenKeyboardEvent *keyEvent, voi
                  keyEvent->keyCode == 39 /* right */ ||
                  keyEvent->keyCode == 40 /* down */ ||
                  (keyEvent->keyCode >= 112 && keyEvent->keyCode <= 135) /* F keys*/ ||
-                 keyEvent->ctrlKey ||
-                 keyEvent->altKey;
+                 keyEvent->ctrlKey;
 
     if (eventType == EMSCRIPTEN_EVENT_KEYDOWN && SDL_GetEventState(SDL_TEXTINPUT) == SDL_ENABLE && !is_nav_key)
         prevent_default = SDL_FALSE;
@@ -618,9 +612,6 @@ Emscripten_HandleFullscreenChange(int eventType, const EmscriptenFullscreenChang
         window_data->window->flags |= window_data->requested_fullscreen_mode;
 
         window_data->requested_fullscreen_mode = 0;
-
-        if(!window_data->requested_fullscreen_mode)
-            window_data->window->flags |= SDL_WINDOW_FULLSCREEN; /*we didn't request fullscreen*/
     }
     else
     {

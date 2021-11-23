@@ -61,6 +61,9 @@ HandleAudioProcess(_THIS)
         if (this->stream) {
             SDL_AudioStreamClear(this->stream);
         }
+
+        SDL_memset(this->work_buffer, this->spec.silence, this->spec.size);
+        FeedAudioDevice(this, this->work_buffer, this->spec.size);
         return;
     }
 
@@ -216,6 +219,9 @@ EMSCRIPTENAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscaptu
                 SDL2.audioContext = new AudioContext();
             } else if (typeof(webkitAudioContext) !== 'undefined') {
                 SDL2.audioContext = new webkitAudioContext();
+            }
+            if (SDL2.audioContext) {
+                autoResumeAudioContext(SDL2.audioContext);
             }
         }
         return SDL2.audioContext === undefined ? -1 : 0;

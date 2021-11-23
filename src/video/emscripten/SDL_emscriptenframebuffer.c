@@ -101,6 +101,7 @@ static void Emscripten_UpdateWindowFramebufferWorker(SDL_Surface *surface)
             if (SDL2.data32Data !== data) {
                 SDL2.data32 = new Int32Array(data.buffer);
                 SDL2.data8 = new Uint8Array(data.buffer);
+                SDL2.data32Data = data;
             }
             var data32 = SDL2.data32;
             num = data32.length;
@@ -170,14 +171,6 @@ int Emscripten_UpdateWindowFramebuffer(_THIS, SDL_Window * window, const SDL_Rec
             (uint32_t)surface
         );
     }
-
-    /*if (SDL_getenv("SDL_VIDEO_Emscripten_SAVE_FRAMES")) {
-        static int frame_number = 0;
-        char file[128];
-        SDL_snprintf(file, sizeof(file), "SDL_window%d-%8.8d.bmp",
-                     SDL_GetWindowID(window), ++frame_number);
-        SDL_SaveBMP(surface, file);
-    }*/
 
     if (emscripten_has_asyncify() && SDL_GetHintBoolean(SDL_HINT_EMSCRIPTEN_ASYNCIFY, SDL_TRUE)) {
         /* give back control to browser for screen refresh */
