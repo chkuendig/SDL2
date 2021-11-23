@@ -358,7 +358,7 @@ EMSCRIPTENAUDIO_Init(SDL_AudioDriverImpl * impl)
     impl->ProvidesOwnCallbackThread = 1;
 
     /* check availability */
-    available = EM_ASM_INT_V({
+    available = MAIN_THREAD_EM_ASM_INT({
         if (typeof(AudioContext) !== 'undefined') {
             return 1;
         } else if (typeof(webkitAudioContext) !== 'undefined') {
@@ -371,7 +371,7 @@ EMSCRIPTENAUDIO_Init(SDL_AudioDriverImpl * impl)
         SDL_SetError("No audio context available");
     }
 
-    capture_available = available && EM_ASM_INT_V({
+    capture_available = available && MAIN_THREAD_EM_ASM_INT({
         if ((typeof(navigator.mediaDevices) !== 'undefined') && (typeof(navigator.mediaDevices.getUserMedia) !== 'undefined')) {
             return 1;
         } else if (typeof(navigator.webkitGetUserMedia) !== 'undefined') {
